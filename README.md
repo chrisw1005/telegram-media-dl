@@ -19,23 +19,44 @@
 
 ## 必備環境
 
-- Python 3.11+ 與 [`uv`](https://docs.astral.sh/uv/)
-- Node.js 22+ 與 pnpm（可透過 `corepack prepare pnpm@9 --activate`）
-- Telegram API credentials：到 <https://my.telegram.org/apps> 建立一個 application 取得 `api_id` / `api_hash`
+- Python 3.11+ 與 [`uv`](https://docs.astral.sh/uv/)（`curl -LsSf https://astral.sh/uv/install.sh | sh`）
+- Node.js 22+ 與 pnpm（`corepack prepare pnpm@9 --activate`）
+- Telegram API credentials：到 <https://my.telegram.org/apps> 申請 `api_id` / `api_hash`
+- （選）Bot token：到 [@BotFather](https://t.me/BotFather) 建 bot 取得
 
-## 第一次設定
+## 一鍵安裝
 
 ```bash
-# 1. 後端環境變數
-cp backend/.env.example backend/.env
-# 編輯 backend/.env 填入 TG_API_ID / TG_API_HASH
+git clone https://github.com/chrisw1005/telegram-media-dl.git
+cd telegram-media-dl
 
-# 2. 生成 session 加密 key
-python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-# 把結果填到 backend/.env 的 SESSION_ENCRYPTION_KEY
-
-# 3. （選擇性）編輯 backend/config.yaml 調整下載資料夾、並行數、白名單
+./scripts/setup.sh
 ```
+
+這個腳本會：
+
+- `uv sync` 建立 `backend/.venv` 並裝依賴
+- `pnpm install` 裝 `frontend/node_modules`
+- 從 `backend/.env.example` 複製 `backend/.env`
+- 自動用 Fernet 產生 `SESSION_ENCRYPTION_KEY` 填入
+
+接著手動編輯 `backend/.env` 填入：
+- `TG_API_ID` / `TG_API_HASH`（必填）
+- `BOT_TOKEN`（選填，啟用 Bot 指令才需要）
+
+（選）編輯 `backend/config.yaml` 調整下載路徑、並行數、白名單、CORS 來源等。
+
+## 從零建置時會自動產生的目錄
+
+| 路徑 | 何時產生 | 用途 |
+|---|---|---|
+| `backend/.venv/` | `uv sync` 或 `./scripts/dev.sh` 首次啟動 | Python 虛擬環境 |
+| `backend/__pycache__/` | Python 執行時 | `.pyc` 自動快取 |
+| `backend/data/` | 後端啟動 lifespan | sessions / users / queue / keyframe cache |
+| `frontend/node_modules/` | `pnpm install` 或 `./scripts/dev.sh` 首次啟動 | npm 依賴 |
+| `frontend/dist/` | `pnpm build`（僅 production / Mini App 需要） | Vite build 產物 |
+
+Dev 模式不需要 `frontend/dist/`；Vite dev server 直接 serve 原始檔。
 
 ## 啟動 dev server
 

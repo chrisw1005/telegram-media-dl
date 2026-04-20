@@ -101,8 +101,9 @@ free_port() {
 
 # ---- sanity checks ----
 if [[ $START_BACKEND -eq 1 ]]; then
-    [[ -f "$PROJECT_ROOT/backend/.env" ]] || warn "backend/.env missing — copy backend/.env.example first"
-    command -v uv >/dev/null 2>&1 || { err "uv not installed"; exit 1; }
+    [[ -f "$PROJECT_ROOT/backend/.env" ]] || warn "backend/.env missing — run ./scripts/setup.sh or copy backend/.env.example manually"
+    command -v uv >/dev/null 2>&1 || { err "uv not installed — run ./scripts/setup.sh first"; exit 1; }
+    [[ -d "$PROJECT_ROOT/backend/.venv" ]] || { log "backend venv missing; running uv sync"; (cd "$PROJECT_ROOT/backend" && uv sync); }
 fi
 if [[ $START_FRONTEND -eq 1 ]]; then
     command -v pnpm >/dev/null 2>&1 || { err "pnpm not installed (try: corepack prepare pnpm@9 --activate)"; exit 1; }
