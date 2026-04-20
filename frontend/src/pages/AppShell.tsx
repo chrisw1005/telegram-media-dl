@@ -46,7 +46,7 @@ export default function AppShell({ me, onLogout }: { me: MeResponse; onLogout: (
               aria-label="下載佇列"
             >
               <div className="relative">
-                <Download className="w-5 h-5" />
+                <Download aria-hidden="true" className="w-5 h-5" />
                 <AnimatePresence>
                   {activeCount > 0 && (
                     <motion.span
@@ -72,10 +72,10 @@ export default function AppShell({ me, onLogout }: { me: MeResponse; onLogout: (
               onClick={() => setSettingsOpen(true)}
               aria-label="設定"
             >
-              <SettingsIcon className="w-5 h-5" />
+              <SettingsIcon aria-hidden="true" className="w-5 h-5" />
             </Button>
             <Button variant="icon" size="icon" onClick={() => void logout()} aria-label="登出">
-              <LogOut className="w-5 h-5" />
+              <LogOut aria-hidden="true" className="w-5 h-5" />
             </Button>
           </div>
         </header>

@@ -244,7 +244,7 @@ export default function MediaThumb({ item, selected, onToggleSelect, onOpen }: P
             : "bg-black/40 border-white/70 opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
         )}
       >
-        {selected && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
+        {selected && <Check aria-hidden="true" className="w-4 h-4 text-white" strokeWidth={3} />}
       </button>
     </motion.div>
   );
@@ -255,25 +255,35 @@ function StatusBadge({ status }: { status?: string }) {
   if (status === "completed") {
     return (
       <motion.span
+        role="img"
+        aria-label="已完成"
         initial={{ scale: 0 }}
         animate={{ scale: 1, transition: { type: "spring", damping: 14, stiffness: 260 } }}
         className="absolute bottom-1.5 left-1.5 w-6 h-6 rounded-full bg-accent-success grid place-items-center"
       >
-        <Check className="w-4 h-4 text-white" strokeWidth={3} />
+        <Check aria-hidden="true" className="w-4 h-4 text-white" strokeWidth={3} />
       </motion.span>
     );
   }
   if (status === "pending" || status === "running" || status === "flood_wait") {
     return (
-      <span className="absolute bottom-1.5 left-1.5 w-6 h-6 rounded-full bg-accent-warn grid place-items-center">
-        <Hourglass className="w-3.5 h-3.5 text-white" />
+      <span
+        role="img"
+        aria-label="下載中"
+        className="absolute bottom-1.5 left-1.5 w-6 h-6 rounded-full bg-accent-warn grid place-items-center"
+      >
+        <Hourglass aria-hidden="true" className="w-3.5 h-3.5 text-white" />
       </span>
     );
   }
   if (status === "failed") {
     return (
-      <span className="absolute bottom-1.5 left-1.5 w-6 h-6 rounded-full bg-destructive grid place-items-center">
-        <TriangleAlert className="w-3.5 h-3.5 text-white" />
+      <span
+        role="img"
+        aria-label="下載失敗"
+        className="absolute bottom-1.5 left-1.5 w-6 h-6 rounded-full bg-destructive grid place-items-center"
+      >
+        <TriangleAlert aria-hidden="true" className="w-3.5 h-3.5 text-white" />
       </span>
     );
   }

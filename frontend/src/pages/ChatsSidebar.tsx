@@ -44,8 +44,16 @@ export default function ChatsSidebar({
     <div className="flex flex-col flex-1 min-h-0">
       <div className="px-3 py-2 border-b border-border">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
+          <Search
+            aria-hidden="true"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted"
+          />
           <Input
+            type="search"
+            name="chat-search"
+            autoComplete="off"
+            spellCheck={false}
+            aria-label="搜尋聊天"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="搜尋聊天…"
@@ -70,6 +78,8 @@ export default function ChatsSidebar({
               return (
                 <motion.button
                   key={chat.id}
+                  type="button"
+                  aria-current={active ? "true" : undefined}
                   style={{
                     position: "absolute",
                     top: 0,
@@ -124,7 +134,8 @@ export default function ChatsSidebar({
 }
 
 function KindIcon({ kind }: { kind: ChatItem["kind"] }) {
-  if (kind === "user") return <User className="w-5 h-5 text-primary" />;
-  if (kind === "channel") return <Megaphone className="w-5 h-5 text-primary" />;
-  return <Users className="w-5 h-5 text-primary" />;
+  const cls = "w-5 h-5 text-primary";
+  if (kind === "user") return <User aria-hidden="true" className={cls} />;
+  if (kind === "channel") return <Megaphone aria-hidden="true" className={cls} />;
+  return <Users aria-hidden="true" className={cls} />;
 }

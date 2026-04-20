@@ -7,14 +7,16 @@ export default function ThemeToggle() {
   const next = () => {
     setChoice(choice === "auto" ? "dark" : choice === "dark" ? "light" : "auto");
   };
+  const label =
+    choice === "auto" ? "切換主題（目前：自動）" : choice === "dark" ? "切換主題（目前：深色）" : "切換主題（目前：明亮）";
   return (
-    <Button variant="icon" size="icon" onClick={next} aria-label={`主題：${choice}`}>
+    <Button variant="icon" size="icon" onClick={next} aria-label={label}>
       {choice === "auto" ? (
-        <SunMoon className="w-5 h-5" />
+        <SunMoon aria-hidden="true" className="w-5 h-5" />
       ) : choice === "dark" ? (
-        <Moon className="w-5 h-5" />
+        <Moon aria-hidden="true" className="w-5 h-5" />
       ) : (
-        <Sun className="w-5 h-5" />
+        <Sun aria-hidden="true" className="w-5 h-5" />
       )}
     </Button>
   );

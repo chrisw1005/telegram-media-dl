@@ -69,7 +69,8 @@ export default function FolderPicker({
         <Input
           value={value || ""}
           readOnly
-          placeholder="選擇下載資料夾"
+          aria-label="目前下載資料夾"
+          placeholder="選擇下載資料夾…"
           className="flex-1"
         />
         <Button
@@ -91,7 +92,7 @@ export default function FolderPicker({
               disabled={!data?.parent}
               aria-label="上層"
             >
-              <ChevronUp className="w-4 h-4" />
+              <ChevronUp aria-hidden="true" className="w-4 h-4" />
             </Button>
             <Button
               variant="icon"
@@ -99,13 +100,13 @@ export default function FolderPicker({
               onClick={() => list(browsing)}
               aria-label="重新整理"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw aria-hidden="true" className="w-4 h-4" />
             </Button>
             <span className="text-xs text-foreground-muted truncate flex-1" title={browsing}>
               {browsing}
             </span>
             <Button variant="icon" size="icon" onClick={() => void mkdir()} aria-label="新增資料夾">
-              <FolderPlus className="w-4 h-4" />
+              <FolderPlus aria-hidden="true" className="w-4 h-4" />
             </Button>
           </div>
           {loading && <p className="text-xs text-foreground-muted p-2">讀取中…</p>}
@@ -120,7 +121,7 @@ export default function FolderPicker({
                       onClick={() => onChange(e.path)}
                       className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-[rgb(var(--surface-hover-rgb)/0.06)] text-left"
                     >
-                      <FolderClosed className="w-4 h-4 text-primary" />
+                      <FolderClosed aria-hidden="true" className="w-4 h-4 text-primary" />
                       <span className="truncate">{e.name}</span>
                     </button>
                   </li>

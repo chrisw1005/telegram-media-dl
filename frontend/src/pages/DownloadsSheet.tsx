@@ -25,7 +25,7 @@ export default function DownloadsSheet({
   return (
     <Sheet open={open} onClose={onClose} title="下載" width="480px">
       <div className="p-4 space-y-5">
-        <Section title="進行中" count={active.length}>
+        <Section title="進行中" count={active.length} live>
           {active.length === 0 && <EmptyLine text="無進行中的下載" />}
           {active.map((j) => (
             <JobCard key={j.id} job={j} />
@@ -56,13 +56,15 @@ function Section({
   title,
   count,
   children,
+  live,
 }: {
   title: string;
   count: number;
   children: React.ReactNode;
+  live?: boolean;
 }) {
   return (
-    <section>
+    <section aria-live={live ? "polite" : undefined}>
       <header className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-semibold text-foreground-muted uppercase tracking-wider">
           {title}
@@ -93,20 +95,21 @@ function JobCard({ job, compact }: { job: DownloadJob; compact?: boolean }) {
     job.bytes_total > 0 ? Math.round((job.bytes_done / job.bytes_total) * 100) : 0;
 
   const icon = (() => {
+    const cls = "w-4 h-4";
     switch (job.status) {
       case "completed":
-        return <CheckCircle2 className="w-4 h-4 text-accent-success" />;
+        return <CheckCircle2 aria-hidden="true" className={`${cls} text-accent-success`} />;
       case "failed":
-        return <XCircle className="w-4 h-4 text-destructive" />;
+        return <XCircle aria-hidden="true" className={`${cls} text-destructive`} />;
       case "cancelled":
-        return <XCircle className="w-4 h-4 text-foreground-muted" />;
+        return <XCircle aria-hidden="true" className={`${cls} text-foreground-muted`} />;
       case "flood_wait":
-        return <PauseCircle className="w-4 h-4 text-accent-warn animate-pulse" />;
+        return <PauseCircle aria-hidden="true" className={`${cls} text-accent-warn animate-pulse`} />;
       case "pending":
-        return <Clock3 className="w-4 h-4 text-foreground-muted" />;
+        return <Clock3 aria-hidden="true" className={`${cls} text-foreground-muted`} />;
       case "running":
       default:
-        return <Loader2 className="w-4 h-4 text-primary animate-spin" />;
+        return <Loader2 aria-hidden="true" className={`${cls} text-primary animate-spin`} />;
     }
   })();
 
@@ -154,7 +157,7 @@ function JobCard({ job, compact }: { job: DownloadJob; compact?: boolean }) {
             className="text-foreground-muted hover:text-destructive transition-colors p-1"
             aria-label="取消"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 aria-hidden="true" className="w-4 h-4" />
           </button>
         )}
       </div>
