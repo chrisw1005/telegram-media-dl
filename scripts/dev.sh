@@ -145,5 +145,11 @@ fi
 ok "running. open http://${FRONTEND_HOST}:${FRONTEND_PORT}/ (Ctrl-C stops all)"
 
 # wait for any child to exit; then cleanup trap fires.
-wait -n "${PIDS[@]}" 2>/dev/null || true
+# macOS 預設 bash 3.2 不支援 `wait -n`，這裡用 polling 取代以維持相容性。
+while :; do
+    for pid in "${PIDS[@]}"; do
+        kill -0 "$pid" 2>/dev/null || break 2
+    done
+    sleep 1
+done
 # If we got here, one died — kill the rest and exit.
