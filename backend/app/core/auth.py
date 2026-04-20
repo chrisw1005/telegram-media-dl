@@ -104,39 +104,39 @@ class LoginManager:
         self._pending[token] = pending
 
         async def poll() -> None:
-            try:
-                while True:
+            while True:
+                try:
+                    user = await qr.wait(QR_POLL_INTERVAL)
+                    await self._finalize_login(pending, user)
+                    pending.qr_result = {
+                        "ok": True,
+                        "tg_user_id": user.id,
+                        "username": user.username,
+                    }
+                    return
+                except TimeoutError:
                     try:
-                        user = await qr.wait(QR_POLL_INTERVAL)
-                        await self._finalize_login(pending, user)
-                        pending.qr_result = {
-                            "ok": True,
-                            "tg_user_id": user.id,
-                            "username": user.username,
-                        }
+                        await qr.recreate()
+                        pending.qr_url = qr.url
+                    except Exception:
+                        logger.exception("qr recreate failed")
+                        pending.qr_result = {"ok": False, "error": "qr_expired"}
+                        await self._drop_pending(pending)
                         return
-                    except TimeoutError:
-                        try:
-                            await qr.recreate()
-                            pending.qr_url = qr.url
-                        except Exception:
-                            logger.exception("qr recreate failed")
-                            pending.qr_result = {"ok": False, "error": "qr_expired"}
-                            return
-                    except SessionPasswordNeededError:
-                        pending.qr_result = {"ok": False, "error": "password_needed"}
-                        return
-                    except Exception as e:
-                        logger.exception("qr poll failed")
-                        pending.qr_result = {"ok": False, "error": str(e)[:200]}
-                        return
-            finally:
-                pass
+                except SessionPasswordNeededError:
+                    pending.qr_result = {"ok": False, "error": "password_needed"}
+                    return
+                except Exception as e:
+                    logger.exception("qr poll failed")
+                    pending.qr_result = {"ok": False, "error": str(e)[:200]}
+                    await self._drop_pending(pending)
+                    return
 
         pending.qr_task = asyncio.create_task(poll())
         return {"login_token": token, "qr_url": qr.url}
 
     async def refresh_qr(self, token: str) -> dict[str, Any]:
+        await self.sweep_expired()
         pending = self._pending.get(token)
         if pending is None or pending.kind != "qr":
             return {"error": "invalid_token"}
@@ -226,20 +226,31 @@ class LoginManager:
         self._store.persist(tg_user_id)
         self._pending.pop(pending.token, None)
 
+    async def _drop_pending(self, pending: PendingLogin) -> None:
+        """Remove a pending login and tear down its client + temp session file.
+
+        Idempotent — safe to call even if the pending entry has already been
+        popped (e.g. a concurrent sweep_expired) or the client already closed.
+        """
+        self._pending.pop(pending.token, None)
+        if pending.client.is_connected():
+            try:
+                await pending.client.disconnect()
+            except Exception:
+                logger.debug("failed to disconnect pending client", exc_info=True)
+        if pending.temp_session_path.exists():
+            try:
+                pending.temp_session_path.unlink()
+            except OSError:
+                pass
+
     async def sweep_expired(self) -> None:
         now = time.time()
         expired = [
-            t for t, p in self._pending.items() if now - p.created_at > LOGIN_TTL_SECONDS
+            p for p in self._pending.values() if now - p.created_at > LOGIN_TTL_SECONDS
         ]
-        for t in expired:
-            p = self._pending.pop(t, None)
-            if p and p.client.is_connected():
-                try:
-                    await p.client.disconnect()
-                except Exception:
-                    pass
-            if p and p.temp_session_path.exists():
-                p.temp_session_path.unlink()
+        for p in expired:
+            await self._drop_pending(p)
 
     # ---- session tokens for API auth (stateless, Fernet-signed) ----
     #
