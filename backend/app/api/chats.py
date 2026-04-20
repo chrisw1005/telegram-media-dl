@@ -181,13 +181,15 @@ async def list_chat_media(
     elif kind == "voice":
         from telethon.tl.types import InputMessagesFilterVoice
         filter_obj = InputMessagesFilterVoice()
-    else:
-        from telethon.tl.types import InputMessagesFilterPhotoVideoDocuments
-        filter_obj = InputMessagesFilterPhotoVideoDocuments()
+    # kind=None ("all"): filter_obj stays None; server returns every message,
+    # we then keep only those with media (see _extract_media_meta loop below).
 
+    # For unfiltered fetches, over-fetch so a text-heavy chat still returns
+    # roughly `limit` media items per page.
+    fetch_limit = limit if filter_obj is not None else min(limit * 3, 300)
     msgs = await client.get_messages(
         chat_id,
-        limit=limit,
+        limit=fetch_limit,
         offset_id=offset_id,
         filter=filter_obj,
     )
@@ -206,8 +208,10 @@ async def list_chat_media(
             )
         )
 
+    # next_offset pages by the last message id Telegram returned (not the last
+    # media item), otherwise we'd skip pages that consist of mostly text.
     next_offset = msgs[-1].id if msgs else 0
-    return {"items": items, "next_offset": next_offset, "has_more": len(msgs) == limit}
+    return {"items": items, "next_offset": next_offset, "has_more": len(msgs) == fetch_limit}
 
 
 @router.get("/messages/{chat_id}/{message_id}/meta", response_model=MessageMeta)

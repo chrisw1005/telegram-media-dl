@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from aiolimiter import AsyncLimiter
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,8 +51,17 @@ async def lifespan(app: FastAPI):
     pool = ClientPool(config, secrets, store)
     acl = ACL(config)
     login_manager = LoginManager(config, secrets, store, pool, acl)
-    downloader = Downloader(config, pool)
-    keyframes = KeyframeExtractor(config, pool)
+
+    # Shared rate-limit primitives. Every Telegram-bound code path acquires
+    # from these so one subsystem (thumbs / streaming / keyframe / download)
+    # cannot starve the others or collectively outpace Telegram's tolerance.
+    global_limiter = AsyncLimiter(
+        max_rate=config.concurrency.global_rps, time_period=1.0
+    )
+    preview_semaphore = asyncio.Semaphore(config.concurrency.preview_semaphore)
+
+    downloader = Downloader(config, pool, global_limiter)
+    keyframes = KeyframeExtractor(config, pool, global_limiter)
     queue = JobQueue(
         snapshot_path=config.queue_file,
         num_workers=config.concurrency.per_user,
@@ -67,6 +78,8 @@ async def lifespan(app: FastAPI):
         queue=queue,
         downloader=downloader,
         keyframes=keyframes,
+        global_limiter=global_limiter,
+        preview_semaphore=preview_semaphore,
     )
     app.state.app_state = state
 
@@ -76,23 +89,27 @@ async def lifespan(app: FastAPI):
     # Optional: start Telegram Bot (P2) when BOT_TOKEN is configured.
     bot_app = None
     if secrets.bot_token:
+        use_polling = not bool(config.public_base_url)
         try:
-            bot_app = bot_webhook.build_application(secrets)
+            if use_polling:
+                # Make sure no stale webhook is set (would block polling).
+                tmp_app = bot_webhook.build_application(secrets, polling=False)
+                await tmp_app.bot.delete_webhook(drop_pending_updates=True)
+            bot_app = bot_webhook.build_application(secrets, polling=use_polling)
             await bot_webhook.register_handlers(bot_app, state)
-            await bot_webhook.start_application(bot_app)
+            await bot_webhook.start_application(bot_app, polling=use_polling)
             app.state.bot_app = bot_app
-            url = bot_webhook.public_webhook_url(config, secrets)
-            if url:
-                await bot_app.bot.set_webhook(
-                    url=url,
-                    drop_pending_updates=True,
-                    allowed_updates=["message", "callback_query"],
-                )
-                logger.info("bot webhook registered: %s", url)
+            if use_polling:
+                logger.info("bot started in POLLING mode (no public_base_url set)")
             else:
-                logger.info(
-                    "bot started but no public_base_url; incoming webhook route active anyway"
-                )
+                url = bot_webhook.public_webhook_url(config, secrets)
+                if url:
+                    await bot_app.bot.set_webhook(
+                        url=url,
+                        drop_pending_updates=True,
+                        allowed_updates=["message", "callback_query"],
+                    )
+                    logger.info("bot webhook registered: %s", url)
         except Exception:
             logger.exception("bot startup failed; continuing without bot")
             bot_app = None

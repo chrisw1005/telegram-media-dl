@@ -71,9 +71,12 @@ export default function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
 
 function QRFlow({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [qrUrl, setQrUrl] = useState<string>("");
+  const [loginToken, setLoginToken] = useState<string>("");
   const [status, setStatus] = useState<"idle" | "waiting" | "success" | "error" | "password_needed">(
     "idle",
   );
+  const [password, setPassword] = useState("");
+  const [submittingPassword, setSubmittingPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pollingRef = useRef<number | null>(null);
 
@@ -91,11 +94,33 @@ function QRFlow({ onLoggedIn }: { onLoggedIn: () => void }) {
       const { login_token, qr_url } = await api.post<{ login_token: string; qr_url: string }>(
         "/api/auth/qr/start",
       );
+      setLoginToken(login_token);
       setQrUrl(qr_url);
       beginPoll(login_token);
     } catch (e) {
       setStatus("error");
       setError(String(e));
+    }
+  }
+
+  async function submitPassword() {
+    setError(null);
+    setSubmittingPassword(true);
+    try {
+      const res = await api.post<{ ok?: boolean; error?: string; tg_user_id?: number }>(
+        `/api/auth/qr/${loginToken}/password`,
+        { password },
+      );
+      if (res.ok) {
+        setStatus("success");
+        setTimeout(onLoggedIn, 600);
+      } else {
+        setError(res.error || "unknown_error");
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSubmittingPassword(false);
     }
   }
 
@@ -160,20 +185,51 @@ function QRFlow({ onLoggedIn }: { onLoggedIn: () => void }) {
         </AnimatePresence>
       </div>
 
-      <motion.div
-        variants={fadeUp}
-        initial="hidden"
-        animate="show"
-        className="flex items-center gap-2 text-sm text-foreground-muted"
-      >
-        <ScanLine className="w-4 h-4" />
-        <span>用另一台 Telegram 掃描此 QR</span>
-      </motion.div>
+      {status !== "password_needed" && (
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="show"
+          className="flex items-center gap-2 text-sm text-foreground-muted"
+        >
+          <ScanLine className="w-4 h-4" />
+          <span>用另一台 Telegram 掃描此 QR</span>
+        </motion.div>
+      )}
 
       {status === "password_needed" && (
-        <p className="text-sm text-accent-warn text-center">
-          此帳號有兩步驟驗證，請改用手機登入流程輸入密碼
-        </p>
+        <motion.div
+          variants={fadeUp}
+          initial="hidden"
+          animate="show"
+          className="w-full space-y-3"
+        >
+          <p className="text-sm text-foreground-muted text-center">
+            此帳號啟用了兩步驟驗證，請輸入密碼完成登入
+          </p>
+          <Input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="兩步驟驗證密碼"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && password && !submittingPassword) void submitPassword();
+            }}
+          />
+          <Button
+            className="w-full"
+            onClick={() => void submitPassword()}
+            disabled={!password || submittingPassword}
+          >
+            {submittingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : "登入"}
+          </Button>
+          {error && (
+            <p className="text-sm text-destructive text-center">
+              {error === "password_invalid" ? "密碼錯誤" : error}
+            </p>
+          )}
+        </motion.div>
       )}
       {status === "error" && error && (
         <div className="flex flex-col items-center gap-2">

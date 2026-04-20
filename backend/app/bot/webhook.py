@@ -32,18 +32,30 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["bot"])
 
 
-def build_application(secrets: Secrets) -> Application:
+def build_application(secrets: Secrets, *, polling: bool) -> Application:
+    """Build the PTB Application. Use polling locally (no public URL), webhook in prod."""
     if not secrets.bot_token:
         raise RuntimeError("BOT_TOKEN not configured; cannot start bot")
-    return Application.builder().token(secrets.bot_token).updater(None).build()
+    builder = Application.builder().token(secrets.bot_token)
+    if not polling:
+        # Webhook mode: FastAPI feeds updates via the /bot/<secret> route.
+        builder = builder.updater(None)
+    return builder.build()
 
 
-async def start_application(app: Application) -> None:
+async def start_application(app: Application, *, polling: bool) -> None:
     await app.initialize()
     await app.start()
+    if polling and app.updater is not None:
+        await app.updater.start_polling(drop_pending_updates=True)
 
 
 async def stop_application(app: Application) -> None:
+    try:
+        if app.updater is not None and app.updater.running:
+            await app.updater.stop()
+    except Exception:
+        pass
     try:
         await app.stop()
     finally:

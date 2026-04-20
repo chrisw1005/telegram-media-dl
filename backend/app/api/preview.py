@@ -59,11 +59,13 @@ async def get_thumbnail(
         return Response(cached, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=3600"})
 
     client = await state.client_pool.get_client(uid)
-    msg = await client.get_messages(chat_id, ids=message_id)
+    async with state.global_limiter:
+        msg = await client.get_messages(chat_id, ids=message_id)
     if msg is None or msg.media is None:
         raise HTTPException(status_code=404, detail="not_found")
 
-    data = await client.download_media(msg, thumb=-1, file=bytes)
+    async with state.global_limiter:
+        data = await client.download_media(msg, thumb=-1, file=bytes)
     if not data:
         raise HTTPException(status_code=404, detail="no_thumbnail")
     await _thumb_store(key, data)
@@ -79,7 +81,8 @@ async def stream_media(
     request: Request,
 ) -> StreamingResponse:
     client = await state.client_pool.get_client(uid)
-    msg = await client.get_messages(chat_id, ids=message_id)
+    async with state.global_limiter:
+        msg = await client.get_messages(chat_id, ids=message_id)
     if msg is None or msg.media is None:
         raise HTTPException(status_code=404, detail="not_found")
 
@@ -114,28 +117,34 @@ async def stream_media(
         headers["Content-Length"] = str(size)
 
     async def body_iter():
-        fetched = 0
-        offset_aligned = (start // (64 * 1024)) * (64 * 1024)
-        skip_head = start - offset_aligned
-        async for chunk in client.iter_download(
-            msg, offset=offset_aligned, request_size=64 * 1024
-        ):
-            if skip_head:
-                if skip_head >= len(chunk):
-                    skip_head -= len(chunk)
-                    continue
-                chunk = chunk[skip_head:]
-                skip_head = 0
-            if request_limit is not None:
-                remaining = request_limit - fetched
-                if remaining <= 0:
+        # preview_semaphore caps concurrent preview streams system-wide.
+        # Each chunk fetch additionally draws from global_limiter so a long
+        # stream doesn't monopolize Telegram API budget against other work.
+        async with state.preview_semaphore:
+            fetched = 0
+            offset_aligned = (start // (64 * 1024)) * (64 * 1024)
+            skip_head = start - offset_aligned
+            async for chunk in client.iter_download(
+                msg, offset=offset_aligned, request_size=64 * 1024
+            ):
+                if skip_head:
+                    if skip_head >= len(chunk):
+                        skip_head -= len(chunk)
+                        continue
+                    chunk = chunk[skip_head:]
+                    skip_head = 0
+                if request_limit is not None:
+                    remaining = request_limit - fetched
+                    if remaining <= 0:
+                        break
+                    if len(chunk) > remaining:
+                        chunk = chunk[:remaining]
+                async with state.global_limiter:
+                    pass  # burn one permit per chunk we surface to the client
+                yield chunk
+                fetched += len(chunk)
+                if request_limit is not None and fetched >= request_limit:
                     break
-                if len(chunk) > remaining:
-                    chunk = chunk[:remaining]
-            yield chunk
-            fetched += len(chunk)
-            if request_limit is not None and fetched >= request_limit:
-                break
 
     return StreamingResponse(body_iter(), status_code=status_code, headers=headers)
 

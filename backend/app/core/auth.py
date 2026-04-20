@@ -160,6 +160,24 @@ class LoginManager:
         self._pending[token] = pending
         return {"login_token": token}
 
+    async def submit_qr_password(self, token: str, password: str) -> dict[str, Any]:
+        """Continue a QR login after SessionPasswordNeededError."""
+        pending = self._pending.get(token)
+        if pending is None or pending.kind != "qr":
+            return {"error": "invalid_token"}
+        try:
+            user = await pending.client.sign_in(password=password)
+        except PasswordHashInvalidError:
+            return {"error": "password_invalid"}
+        except Exception as e:
+            logger.exception("qr 2fa sign_in failed")
+            return {"error": str(e)[:200]}
+        try:
+            await self._finalize_login(pending, user)
+        except PermissionError:
+            return {"error": "not_allowed"}
+        return {"ok": True, "tg_user_id": user.id, "username": user.username}
+
     async def submit_code(
         self, token: str, code: str, password: str | None = None
     ) -> dict[str, Any]:

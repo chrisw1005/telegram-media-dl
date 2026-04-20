@@ -11,6 +11,12 @@ from pathlib import Path
 from aiolimiter import AsyncLimiter
 from telethon.errors import FloodWaitError
 from telethon.tl.custom.message import Message
+from telethon.tl.types import (
+    DocumentAttributeAnimated,
+    DocumentAttributeAudio,
+    DocumentAttributeFilename,
+    DocumentAttributeVideo,
+)
 
 from app.core.client_pool import ClientPool
 from app.core.config import AppConfig
@@ -28,12 +34,12 @@ def _safe_filename(raw: str | None, fallback: str) -> str:
 
 
 class Downloader:
-    def __init__(self, config: AppConfig, pool: ClientPool) -> None:
+    def __init__(
+        self, config: AppConfig, pool: ClientPool, global_limiter: AsyncLimiter
+    ) -> None:
         self._config = config
         self._pool = pool
-        self._global_limiter = AsyncLimiter(
-            max_rate=config.concurrency.global_rps, time_period=1.0
-        )
+        self._global_limiter = global_limiter
 
     async def fetch_message(self, tg_user_id: int, chat_id: int, message_id: int) -> Message:
         client = await self._pool.get_client(tg_user_id)
@@ -115,8 +121,11 @@ class Downloader:
     async def _send_to_saved(self, client, job: DownloadJob) -> None:
         """Upload the downloaded file to the user's Saved Messages (chat 'me').
 
-        Uses the user's own MTProto session, so the 2GB / 4GB Premium limits apply
-        instead of the Bot API 50MB restriction.
+        Re-uses the source message's attributes (video duration/dims/streaming,
+        audio duration/title, filename, animated flag) and its server-provided
+        thumbnail so the re-upload shows the same preview + length Telegram
+        had on the original. Uses the user's own MTProto session, so the
+        2GB / 4GB Premium limits apply instead of the Bot API 50MB restriction.
         """
         size = job.bytes_total or 0
         if size > self._config.bot_large_file_fallback_bytes:
@@ -125,11 +134,49 @@ class Downloader:
                 size,
             )
             return
+
+        attributes: list = []
+        thumb: bytes | None = None
+        supports_streaming = False
+        mime_type: str | None = None
+
+        try:
+            orig = await client.get_messages(job.chat_id, ids=job.message_id)
+        except Exception:
+            orig = None
+
+        if orig is not None and getattr(orig, "document", None) is not None:
+            for attr in orig.document.attributes:
+                if isinstance(
+                    attr,
+                    (
+                        DocumentAttributeVideo,
+                        DocumentAttributeAudio,
+                        DocumentAttributeFilename,
+                        DocumentAttributeAnimated,
+                    ),
+                ):
+                    attributes.append(attr)
+                    if isinstance(attr, DocumentAttributeVideo):
+                        supports_streaming = True
+            mime_type = getattr(orig.document, "mime_type", None)
+            try:
+                thumb_bytes = await client.download_media(orig, thumb=-1, file=bytes)
+                if thumb_bytes:
+                    thumb = thumb_bytes
+            except Exception:
+                logger.debug("thumb download failed for %s", job.id)
+
         async with self._global_limiter:
             await client.send_file(
                 "me",
                 job.result_path,
                 caption=job.filename or Path(job.result_path).name,
+                attributes=attributes or None,
+                thumb=thumb,
+                supports_streaming=supports_streaming,
+                mime_type=mime_type,
+                force_document=False,
             )
 
 

@@ -18,6 +18,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import imageio_ffmpeg
+from aiolimiter import AsyncLimiter
 
 from app.core.client_pool import ClientPool
 from app.core.config import AppConfig
@@ -46,13 +47,20 @@ class ExtractionStatus:
 
 
 class KeyframeExtractor:
-    def __init__(self, config: AppConfig, pool: ClientPool) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        pool: ClientPool,
+        global_limiter: AsyncLimiter,
+    ) -> None:
         self._config = config
         self._pool = pool
+        self._global_limiter = global_limiter
         self._ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
         self._statuses: dict[str, ExtractionStatus] = {}  # key=f"{chat_id}:{msg_id}"
         self._locks: dict[str, asyncio.Lock] = {}
-        self._global_sem = asyncio.Semaphore(config.concurrency.keyframe_workers)
+        # keyframe_workers gates CPU-bound ffmpeg jobs (not network).
+        self._worker_sem = asyncio.Semaphore(config.concurrency.keyframe_workers)
         self._subscribers: list[asyncio.Queue[dict]] = []
 
     def status_key(self, chat_id: int, msg_id: int) -> str:
@@ -131,9 +139,10 @@ class KeyframeExtractor:
                 return None
 
     async def _extract(self, tg_user_id: int, chat_id: int, msg_id: int) -> KeyframeMeta:
-        async with self._global_sem:
+        async with self._worker_sem:
             client = await self._pool.get_client(tg_user_id)
-            msg = await client.get_messages(chat_id, ids=msg_id)
+            async with self._global_limiter:
+                msg = await client.get_messages(chat_id, ids=msg_id)
             if msg is None or msg.media is None:
                 raise FileNotFoundError(f"no media at {chat_id}/{msg_id}")
 
@@ -150,7 +159,8 @@ class KeyframeExtractor:
             tmp_video = temp_dir / f"{msg_id}-{int(time.time())}.mp4"
 
             try:
-                await client.download_media(msg, file=str(tmp_video))
+                async with self._global_limiter:
+                    await client.download_media(msg, file=str(tmp_video))
                 offsets = [
                     (i + 0.5) * (duration / frame_count) for i in range(frame_count)
                 ]

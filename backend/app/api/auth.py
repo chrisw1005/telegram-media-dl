@@ -31,6 +31,10 @@ class PhoneCodeRequest(BaseModel):
     password: str | None = None
 
 
+class QRPasswordRequest(BaseModel):
+    password: str
+
+
 class MeResponse(BaseModel):
     tg_user_id: int
     is_admin: bool
@@ -59,6 +63,27 @@ async def qr_poll(login_token: str, state: StateDep, response: Response) -> QRPo
             path="/",
         )
     return QRPollResponse(qr_url=data.get("qr_url"), result=result)
+
+
+@router.post("/qr/{login_token}/password")
+async def qr_password(
+    login_token: str,
+    req: QRPasswordRequest,
+    state: StateDep,
+    response: Response,
+) -> dict:
+    data = await state.login_manager.submit_qr_password(login_token, req.password)
+    if data.get("ok"):
+        token = LoginManager.issue_api_token(int(data["tg_user_id"]))
+        response.set_cookie(
+            "tg_session",
+            token,
+            httponly=True,
+            samesite="lax",
+            max_age=30 * 24 * 3600,
+            path="/",
+        )
+    return data
 
 
 @router.post("/phone/start")

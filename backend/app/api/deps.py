@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import Annotated
 
+from aiolimiter import AsyncLimiter
 from fastapi import Cookie, Depends, HTTPException, Request, status
 
 from app.core.acl import ACL
@@ -28,6 +30,11 @@ class AppState:
     queue: JobQueue
     downloader: Downloader
     keyframes: KeyframeExtractor
+    # Shared rate-limit primitives used by every Telegram-bound endpoint.
+    # Centralizing them means thumb/stream/keyframe/download all share one
+    # system-wide budget, and adjusting concurrency config hits everything.
+    global_limiter: AsyncLimiter
+    preview_semaphore: asyncio.Semaphore
 
 
 def get_state(request: Request) -> AppState:
