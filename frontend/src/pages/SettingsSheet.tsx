@@ -257,8 +257,14 @@ function AdminSection() {
   }
 
   async function remove(id: number) {
+    const isAdmin = data?.admin_ids.includes(id);
+    const confirmed = window.confirm(
+      `確定要將 ${id}${isAdmin ? "（管理員）" : ""} 從白名單移除？此動作無法復原。`,
+    );
+    if (!confirmed) return;
     try {
       await api.post("/api/admin/acl/remove", { tg_user_id: id });
+      toast.success("已從白名單移除");
       void refetch();
     } catch (e) {
       toast.error(String(e));
