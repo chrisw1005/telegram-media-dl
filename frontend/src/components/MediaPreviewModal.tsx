@@ -6,6 +6,7 @@ import { formatDateTs, formatDuration, formatSize } from "@/lib/format";
 import { useMessageStatus } from "@/stores/downloads";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 
 interface Props {
   items: MediaItem[];
@@ -71,6 +72,8 @@ function InnerModal({
     const t = window.setTimeout(() => dialogRef.current?.focus(), 0);
     return () => window.clearTimeout(t);
   }, []);
+
+  useFocusTrap(dialogRef);
 
   useEffect(() => {
     setKeyframes(null);

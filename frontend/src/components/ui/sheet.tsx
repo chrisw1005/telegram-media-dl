@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 
 interface Props {
   open: boolean;
@@ -14,6 +15,8 @@ interface Props {
 export function Sheet({ open, onClose, title, width = "440px", children }: Props) {
   const titleId = useId();
   const panelRef = useRef<HTMLElement>(null);
+
+  useFocusTrap(panelRef, open);
 
   useEffect(() => {
     if (!open) return;
