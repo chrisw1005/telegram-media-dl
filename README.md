@@ -111,10 +111,36 @@ frontend/
 - `local`（預設）：檔案存到 `download_dir`（可在 UI 用 FolderPicker 切換）
 - `public`：檔案透過 HTTP streaming 給瀏覽器下載；`/api/fs/*` 端點關閉
 
-## 已知限制（P1）
+## Telegram Bot（P2）
+
+想用 Bot 介面（`/dl`、轉傳訊息下載、`/status`），需要：
+
+1. 在 [@BotFather](https://t.me/BotFather) 建立一個 bot，取得 `BOT_TOKEN`
+2. 設 `backend/.env`：
+   ```
+   BOT_TOKEN=123456:AA...
+   WEBHOOK_SECRET=$(python3 -c "import secrets;print(secrets.token_urlsafe(32))")
+   ```
+3. 設 `backend/config.yaml`：`public_base_url: https://your-public-domain`
+4. 重啟後端，後端會自動向 Telegram 註冊 webhook `/bot/<WEBHOOK_SECRET>`
+
+沒設 `public_base_url` 也可以——`/bot/<secret>` 端點會 accept updates（polling 由外部 proxy 代為餵入）。
+
+**Bot 指令**：
+
+| 指令 | 作用 |
+|---|---|
+| `/start` | 未登入：回傳 Web 登入連結（含一次性 token） / 已登入：顯示說明 |
+| `/dl <t.me/...>` | 下載連結指向的媒體，並傳到你的 Saved Messages |
+| （轉傳媒體訊息） | 自動從 forward source 下載，傳到 Saved Messages |
+| `/status` | 顯示你目前的進行中/排隊中 job + 最近完成 |
+| `/cancel <job_id_prefix>` | 取消某個 job |
+
+檔案 > `bot_large_file_fallback_bytes`（預設 2GB）時只保留伺服器副本、不上傳 Saved Messages。
+
+## 已知限制
 
 - 大於 200MB 影片不自動抽 keyframe（fallback 首 5 秒 stream）——P2 規劃 Range-seek 抽幀
-- Bot 功能尚未實作（P2）
 - Mini App 尚未實作（P3）
 
 ## 授權

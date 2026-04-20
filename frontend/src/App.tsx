@@ -16,11 +16,27 @@ export default function App() {
   }, [initTheme]);
 
   useEffect(() => {
-    void check();
+    void bootstrap();
     const onUnauth = () => setMe(null);
     window.addEventListener("auth:unauthorized", onUnauth);
     return () => window.removeEventListener("auth:unauthorized", onUnauth);
   }, []);
+
+  async function bootstrap() {
+    // Handle deep link from Bot: `?bot_token=...`
+    const url = new URL(location.href);
+    const botToken = url.searchParams.get("bot_token");
+    if (botToken) {
+      try {
+        await api.post("/api/auth/bot_token", { bot_token: botToken });
+      } catch {
+        // ignore — fall through to /me check
+      }
+      url.searchParams.delete("bot_token");
+      history.replaceState(null, "", url.toString());
+    }
+    await check();
+  }
 
   async function check() {
     try {

@@ -36,6 +36,8 @@ class AppConfig(BaseModel):
     concurrency: ConcurrencyConfig = ConcurrencyConfig()
     keyframes: KeyframeConfig = KeyframeConfig()
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    public_base_url: str | None = None
+    bot_large_file_fallback_bytes: int = 2 * 1024 * 1024 * 1024  # 2 GB default
 
     @field_validator("download_dir", "data_dir", mode="before")
     @classmethod

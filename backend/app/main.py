@@ -17,6 +17,7 @@ from app.api import download as download_router
 from app.api import fs as fs_router
 from app.api import preview as preview_router
 from app.api import settings as settings_router
+from app.bot import webhook as bot_webhook
 from app.core.acl import ACL
 from app.core.auth import LoginManager
 from app.core.client_pool import ClientPool
@@ -71,16 +72,43 @@ async def lifespan(app: FastAPI):
     await queue.start()
     pool.start_reaper()
 
+    # Optional: start Telegram Bot (P2) when BOT_TOKEN is configured.
+    bot_app = None
+    if secrets.bot_token:
+        try:
+            bot_app = bot_webhook.build_application(secrets)
+            await bot_webhook.register_handlers(bot_app, state)
+            await bot_webhook.start_application(bot_app)
+            app.state.bot_app = bot_app
+            url = bot_webhook.public_webhook_url(config, secrets)
+            if url:
+                await bot_app.bot.set_webhook(
+                    url=url,
+                    drop_pending_updates=True,
+                    allowed_updates=["message", "callback_query"],
+                )
+                logger.info("bot webhook registered: %s", url)
+            else:
+                logger.info(
+                    "bot started but no public_base_url; incoming webhook route active anyway"
+                )
+        except Exception:
+            logger.exception("bot startup failed; continuing without bot")
+            bot_app = None
+
     logger.info(
-        "app started (mode=%s, download_dir=%s)",
+        "app started (mode=%s, download_dir=%s, bot=%s)",
         config.deployment_mode,
         config.download_dir,
+        "on" if bot_app else "off",
     )
 
     try:
         yield
     finally:
         logger.info("shutting down")
+        if bot_app is not None:
+            await bot_webhook.stop_application(bot_app)
         await queue.stop()
         await pool.shutdown()
 
@@ -103,6 +131,7 @@ def create_app() -> FastAPI:
     app.include_router(download_router.router)
     app.include_router(fs_router.router)
     app.include_router(settings_router.router)
+    app.include_router(bot_webhook.router)
 
     @app.get("/health")
     async def health() -> dict:

@@ -87,7 +87,7 @@ class Downloader:
                         if saved_to is None:
                             raise RuntimeError("download returned None")
                         job.result_path = str(saved_to)
-                        return
+                        break
                     except FloodWaitError as flood:
                         attempt += 1
                         wait = int(getattr(flood, "seconds", 30)) + 1
@@ -100,8 +100,37 @@ class Downloader:
                         job.status = JobStatus.RUNNING
                         if attempt > 4:
                             raise
+
+                # Post-download: optional re-upload to Saved Messages (Bot flow)
+                if job.send_to_saved and job.result_path:
+                    try:
+                        await self._send_to_saved(client, job)
+                    except Exception:
+                        logger.exception("send_to_saved failed for job %s", job.id)
+                        # Not fatal — keep the downloaded file; record the error.
+                        job.error = (job.error or "") + "; saved_messages_upload_failed"
             except asyncio.CancelledError:
                 raise
+
+    async def _send_to_saved(self, client, job: DownloadJob) -> None:
+        """Upload the downloaded file to the user's Saved Messages (chat 'me').
+
+        Uses the user's own MTProto session, so the 2GB / 4GB Premium limits apply
+        instead of the Bot API 50MB restriction.
+        """
+        size = job.bytes_total or 0
+        if size > self._config.bot_large_file_fallback_bytes:
+            logger.info(
+                "file too large (%d bytes) for saved-messages upload; keeping server copy only",
+                size,
+            )
+            return
+        async with self._global_limiter:
+            await client.send_file(
+                "me",
+                job.result_path,
+                caption=job.filename or Path(job.result_path).name,
+            )
 
 
 def _with_sequence_suffix(path: Path) -> Path:

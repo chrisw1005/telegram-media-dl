@@ -90,6 +90,41 @@ async def me(uid: UserIdDep, state: StateDep) -> MeResponse:
     return MeResponse(tg_user_id=uid, is_admin=state.acl.is_admin(uid))
 
 
+class BotTokenRequest(BaseModel):
+    bot_token: str
+
+
+@router.post("/bot_token")
+async def bot_token_exchange(
+    req: BotTokenRequest, state: StateDep, response: Response
+) -> dict:
+    """Exchange a one-time deep-link token (issued by bot /start) for a web session
+    cookie. Only works if the user already has a completed MTProto session.
+    """
+    from app.bot.handlers import resolve_deeplink_token
+
+    uid = resolve_deeplink_token(req.bot_token)
+    if uid is None:
+        raise HTTPException(status_code=404, detail="token_invalid_or_expired")
+
+    if not state.session_store.has_session(uid):
+        return {"needs_login": True, "tg_user_id": uid}
+
+    if not state.acl.is_allowed(uid):
+        raise HTTPException(status_code=403, detail="not_allowed")
+
+    token = LoginManager.issue_api_token(uid)
+    response.set_cookie(
+        "tg_session",
+        token,
+        httponly=True,
+        samesite="lax",
+        max_age=30 * 24 * 3600,
+        path="/",
+    )
+    return {"ok": True, "tg_user_id": uid}
+
+
 @router.post("/logout")
 async def logout(
     response: Response,
