@@ -9,7 +9,7 @@ export const Input = React.forwardRef<
     ref={ref}
     className={cn(
       "w-full h-11 px-3 rounded-button bg-bg-card border border-border text-foreground placeholder:text-foreground-muted text-base",
-      "transition-colors duration-fast focus:border-primary focus:outline-none",
+      "transition-colors duration-fast focus:border-primary",
       className,
     )}
     {...props}
