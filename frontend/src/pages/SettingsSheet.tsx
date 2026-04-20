@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, type AppInfo, type MeResponse, type UserSettings } from "@/lib/api";
@@ -25,6 +25,9 @@ export default function SettingsSheet({
     enabled: open,
   });
   const theme = useTheme();
+  const concurrencyId = useId();
+  const minAspectId = useId();
+  const maxAspectId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -72,9 +75,7 @@ export default function SettingsSheet({
             <div className="space-y-3">
               {info?.deployment_mode === "local" ? (
                 <div>
-                  <label className="block text-xs text-foreground-muted mb-1">
-                    目標資料夾
-                  </label>
+                  <p className="text-xs text-foreground-muted mb-1">目標資料夾</p>
                   <FolderPicker
                     value={settings.download_dir || info?.download_dir_default || null}
                     onChange={(p) => save({ download_dir: p })}
@@ -87,10 +88,14 @@ export default function SettingsSheet({
               )}
 
               <div>
-                <label className="block text-xs text-foreground-muted mb-2">
+                <label
+                  htmlFor={concurrencyId}
+                  className="block text-xs text-foreground-muted mb-2"
+                >
                   預設並行數：{settings.preferred_concurrency ?? 4}
                 </label>
                 <input
+                  id={concurrencyId}
                   type="range"
                   min={2}
                   max={8}
@@ -159,7 +164,10 @@ export default function SettingsSheet({
               </div>
 
               <div>
-                <label className="block text-xs text-foreground-muted mb-2">
+                <label
+                  htmlFor={minAspectId}
+                  className="block text-xs text-foreground-muted mb-2"
+                >
                   最窄高寬比：<span className="font-mono">
                     {settings.grid_min_aspect.toFixed(2)}
                   </span>
@@ -168,6 +176,7 @@ export default function SettingsSheet({
                   </span>
                 </label>
                 <input
+                  id={minAspectId}
                   type="range"
                   min={0.3}
                   max={1.0}
@@ -181,7 +190,10 @@ export default function SettingsSheet({
               </div>
 
               <div>
-                <label className="block text-xs text-foreground-muted mb-2">
+                <label
+                  htmlFor={maxAspectId}
+                  className="block text-xs text-foreground-muted mb-2"
+                >
                   最寬高寬比：<span className="font-mono">
                     {settings.grid_max_aspect.toFixed(2)}
                   </span>
@@ -190,6 +202,7 @@ export default function SettingsSheet({
                   </span>
                 </label>
                 <input
+                  id={maxAspectId}
                   type="range"
                   min={1.0}
                   max={3.0}
