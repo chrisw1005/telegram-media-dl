@@ -108,9 +108,15 @@ export default function MediaThumb({ item, selected, onToggleSelect, onOpen }: P
 
   const thumbUrl = `/api/thumb/${item.chat_id}/${item.message_id}`;
 
+  const label = item.filename || `${item.kind}-${item.message_id}`;
+
   return (
     <motion.div
       layout
+      role="button"
+      tabIndex={0}
+      aria-label={selected ? `已選取：${label}` : label}
+      aria-pressed={selected}
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{
         opacity: 1,
@@ -133,13 +139,23 @@ export default function MediaThumb({ item, selected, onToggleSelect, onOpen }: P
           onOpen();
         }
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onOpen();
+        } else if (e.key === " ") {
+          e.preventDefault();
+          onToggleSelect();
+        }
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         onToggleSelect();
       }}
       className={cn(
         "relative w-full h-full cursor-pointer rounded-card overflow-hidden bg-bg-card group",
-        "ring-2 ring-transparent transition-all duration-fast",
+        "ring-2 ring-transparent transition-[box-shadow,transform] duration-fast",
+        "focus-visible:outline-none focus-visible:ring-primary",
         selected && "ring-primary",
         hovering && !selected && "ring-primary/40",
       )}
@@ -147,7 +163,7 @@ export default function MediaThumb({ item, selected, onToggleSelect, onOpen }: P
       {/* Base layer: thumbnail or document icon */}
       {item.kind === "document" || item.kind === "audio" || item.kind === "voice" ? (
         <div className="w-full h-full grid place-items-center p-4 bg-bg-elevated">
-          <FileText className="w-10 h-10 text-foreground-muted" />
+          <FileText aria-hidden="true" className="w-10 h-10 text-foreground-muted" />
           <p className="mt-2 text-xs text-foreground-muted line-clamp-2 text-center">
             {item.filename || "(no name)"}
           </p>
@@ -180,7 +196,10 @@ export default function MediaThumb({ item, selected, onToggleSelect, onOpen }: P
       {/* Play icon center (video only) */}
       {item.kind === "video" && !slideshowActive && (
         <div className="absolute inset-0 grid place-items-center pointer-events-none">
-          <PlayCircle className="w-12 h-12 text-white/80 drop-shadow-lg group-hover:text-white transition-colors" />
+          <PlayCircle
+            aria-hidden="true"
+            className="w-12 h-12 text-white/80 drop-shadow-lg group-hover:text-white transition-colors"
+          />
         </div>
       )}
 
@@ -217,11 +236,12 @@ export default function MediaThumb({ item, selected, onToggleSelect, onOpen }: P
         }}
         aria-label={selected ? "取消選取" : "選取"}
         className={cn(
-          "absolute top-1.5 right-1.5 w-6 h-6 rounded-full border-2 transition-all duration-fast",
+          "absolute top-1.5 right-1.5 w-6 h-6 rounded-full border-2",
+          "transition-[background-color,border-color,opacity] duration-fast",
           "grid place-items-center",
           selected
             ? "bg-primary border-primary"
-            : "bg-black/40 border-white/70 opacity-0 group-hover:opacity-100",
+            : "bg-black/40 border-white/70 opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
         )}
       >
         {selected && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
