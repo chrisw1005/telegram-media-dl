@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import MediaThumb from "@/components/MediaThumb";
 import MediaPreviewModal from "@/components/MediaPreviewModal";
 import { cn } from "@/lib/cn";
+import { useUrlParam } from "@/lib/useUrlParam";
 
 type KindFilter = "all" | "photo" | "video" | "document" | "audio" | "voice";
 
@@ -29,8 +30,21 @@ const FILTERS: { key: KindFilter; label: string }[] = [
   { key: "voice", label: "語音" },
 ];
 
+const VALID_KINDS: readonly KindFilter[] = [
+  "all",
+  "photo",
+  "video",
+  "document",
+  "audio",
+  "voice",
+];
+
 export default function ChatMedia({ chatId }: { chatId: number }) {
-  const [kind, setKind] = useState<KindFilter>("all");
+  const [kindRaw, setKindRaw] = useUrlParam("kind", "all");
+  const kind: KindFilter = (VALID_KINDS as readonly string[]).includes(kindRaw)
+    ? (kindRaw as KindFilter)
+    : "all";
+  const setKind = (k: KindFilter) => setKindRaw(k);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);

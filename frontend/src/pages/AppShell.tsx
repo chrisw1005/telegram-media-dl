@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Download, LogOut, Settings as SettingsIcon } from "lucide-react";
 import { api, type MeResponse } from "@/lib/api";
@@ -9,9 +9,15 @@ import DownloadsSheet from "@/pages/DownloadsSheet";
 import SettingsSheet from "@/pages/SettingsSheet";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useDownloadStore } from "@/stores/downloads";
+import { useUrlParam } from "@/lib/useUrlParam";
 
 export default function AppShell({ me, onLogout }: { me: MeResponse; onLogout: () => void }) {
-  const [selectedChat, setSelectedChat] = useState<number | null>(null);
+  const [chatStr, setChatStr] = useUrlParam("chat", "");
+  const selectedChat = chatStr ? Number(chatStr) : null;
+  const setSelectedChat = useCallback(
+    (id: number | null) => setChatStr(id == null ? "" : String(id)),
+    [setChatStr],
+  );
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
