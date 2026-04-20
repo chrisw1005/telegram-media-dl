@@ -12,7 +12,7 @@ file is encrypted under the Telegram user ID and the temp filename is renamed ap
 from __future__ import annotations
 
 import asyncio
-import base64
+import json
 import logging
 import secrets
 import time
@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from cryptography.fernet import Fernet, InvalidToken
 from telethon import TelegramClient
 from telethon.errors import (
     PasswordHashInvalidError,
@@ -240,20 +241,37 @@ class LoginManager:
             if p and p.temp_session_path.exists():
                 p.temp_session_path.unlink()
 
-    # ---- session tokens for API auth (stateful cookie) ----
-    # Simple random token → tg_user_id mapping, persisted in memory.
-    _session_tokens: dict[str, int] = {}
+    # ---- session tokens for API auth (stateless, Fernet-signed) ----
+    #
+    # Cookie payload = Fernet(SESSION_ENCRYPTION_KEY).encrypt(json({uid, exp})).
+    # Because the token is self-describing + cryptographically sealed, backend
+    # reloads no longer invalidate existing cookies (the previous in-memory
+    # dict lost all issued tokens whenever uvicorn reloaded on code change).
+    API_TOKEN_TTL = 30 * 24 * 3600
 
-    @classmethod
-    def issue_api_token(cls, tg_user_id: int) -> str:
-        tok = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip("=")
-        cls._session_tokens[tok] = tg_user_id
-        return tok
+    def _token_fernet(self) -> Fernet:
+        # Reuse the same key that protects session files on disk.
+        return Fernet(self._secrets.session_encryption_key.encode())
 
-    @classmethod
-    def resolve_api_token(cls, token: str) -> int | None:
-        return cls._session_tokens.get(token)
+    def issue_api_token(self, tg_user_id: int) -> str:
+        payload = json.dumps(
+            {"uid": int(tg_user_id), "exp": int(time.time()) + self.API_TOKEN_TTL}
+        ).encode()
+        return self._token_fernet().encrypt(payload).decode()
 
-    @classmethod
-    def revoke_api_token(cls, token: str) -> None:
-        cls._session_tokens.pop(token, None)
+    def resolve_api_token(self, token: str) -> int | None:
+        try:
+            payload = self._token_fernet().decrypt(token.encode())
+            data = json.loads(payload)
+        except (InvalidToken, ValueError):
+            return None
+        if int(data.get("exp", 0)) < time.time():
+            return None
+        uid = data.get("uid")
+        return int(uid) if uid is not None else None
+
+    def revoke_api_token(self, token: str) -> None:
+        # Stateless tokens can't be centrally revoked without a blacklist.
+        # On logout we just clear the cookie client-side; remaining TTL is
+        # bounded by API_TOKEN_TTL.
+        return None

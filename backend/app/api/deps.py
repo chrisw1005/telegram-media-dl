@@ -53,7 +53,7 @@ def require_user(
 ) -> int:
     if not session_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="not_logged_in")
-    uid = LoginManager.resolve_api_token(session_token)
+    uid = state.login_manager.resolve_api_token(session_token)
     if uid is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_token")
     if not state.acl.is_allowed(uid):

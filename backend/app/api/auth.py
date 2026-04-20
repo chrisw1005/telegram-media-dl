@@ -6,7 +6,6 @@ from fastapi import APIRouter, Cookie, HTTPException, Response
 from pydantic import BaseModel
 
 from app.api.deps import StateDep, UserIdDep
-from app.core.auth import LoginManager
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -53,7 +52,7 @@ async def qr_poll(login_token: str, state: StateDep, response: Response) -> QRPo
         raise HTTPException(status_code=404, detail="invalid_token")
     result = data.get("result")
     if result and result.get("ok"):
-        token = LoginManager.issue_api_token(int(result["tg_user_id"]))
+        token = state.login_manager.issue_api_token(int(result["tg_user_id"]))
         response.set_cookie(
             "tg_session",
             token,
@@ -74,7 +73,7 @@ async def qr_password(
 ) -> dict:
     data = await state.login_manager.submit_qr_password(login_token, req.password)
     if data.get("ok"):
-        token = LoginManager.issue_api_token(int(data["tg_user_id"]))
+        token = state.login_manager.issue_api_token(int(data["tg_user_id"]))
         response.set_cookie(
             "tg_session",
             token,
@@ -98,7 +97,7 @@ async def phone_code(req: PhoneCodeRequest, state: StateDep, response: Response)
         req.login_token, req.code, req.password
     )
     if data.get("ok"):
-        token = LoginManager.issue_api_token(int(data["tg_user_id"]))
+        token = state.login_manager.issue_api_token(int(data["tg_user_id"]))
         response.set_cookie(
             "tg_session",
             token,
@@ -148,7 +147,7 @@ async def miniapp_auth(
     if not state.session_store.has_session(uid):
         return {"needs_login": True, "tg_user_id": uid}
 
-    token = LoginManager.issue_api_token(uid)
+    token = state.login_manager.issue_api_token(uid)
     response.set_cookie(
         "tg_session",
         token,
@@ -179,7 +178,7 @@ async def bot_token_exchange(
     if not state.acl.is_allowed(uid):
         raise HTTPException(status_code=403, detail="not_allowed")
 
-    token = LoginManager.issue_api_token(uid)
+    token = state.login_manager.issue_api_token(uid)
     response.set_cookie(
         "tg_session",
         token,
@@ -198,8 +197,8 @@ async def logout(
     session_token: str | None = Cookie(default=None, alias="tg_session"),
 ) -> dict:
     if session_token:
-        uid = LoginManager.resolve_api_token(session_token)
-        LoginManager.revoke_api_token(session_token)
+        uid = state.login_manager.resolve_api_token(session_token)
+        state.login_manager.revoke_api_token(session_token)
         if uid is not None:
             await state.client_pool.release(uid, persist=True)
     response.delete_cookie("tg_session", path="/")

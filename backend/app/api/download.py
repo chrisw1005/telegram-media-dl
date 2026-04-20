@@ -10,7 +10,6 @@ from fastapi import APIRouter, Cookie, HTTPException, WebSocket, WebSocketDiscon
 from pydantic import BaseModel
 
 from app.api.deps import StateDep, UserIdDep
-from app.core.auth import LoginManager
 from app.core.queue import DownloadJob
 
 logger = logging.getLogger(__name__)
@@ -81,7 +80,7 @@ async def ws_downloads(
     tg_session: str | None = Cookie(default=None),
 ) -> None:
     await websocket.accept()
-    uid = LoginManager.resolve_api_token(tg_session) if tg_session else None
+    uid = state.login_manager.resolve_api_token(tg_session) if tg_session else None
     if uid is None or not state.acl.is_allowed(uid):
         await websocket.send_json({"error": "unauthorized"})
         await websocket.close()
