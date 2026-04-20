@@ -102,9 +102,16 @@ class JobQueue:
         if not self._path.exists():
             return
         try:
-            data = json.loads(self._path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            logger.exception("failed to restore queue snapshot; starting empty")
+            text = self._path.read_text(encoding="utf-8")
+        except OSError:
+            logger.warning("failed to read queue snapshot; starting empty", exc_info=True)
+            return
+        if not text.strip():
+            return
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as e:
+            logger.warning("queue snapshot is not valid JSON (%s); starting empty", e)
             return
         for raw in data.get("jobs", []):
             job = DownloadJob.from_dict(raw)
