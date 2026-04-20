@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { api, type MeResponse } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { getWebApp, initTelegramWebApp, isInsideTelegram } from "@/lib/twa";
 import Login from "@/pages/Login";
 import AppShell from "@/pages/AppShell";
 import { pageFade } from "@/lib/motion";
@@ -23,17 +24,30 @@ export default function App() {
   }, []);
 
   async function bootstrap() {
-    // Handle deep link from Bot: `?bot_token=...`
-    const url = new URL(location.href);
-    const botToken = url.searchParams.get("bot_token");
-    if (botToken) {
-      try {
-        await api.post("/api/auth/bot_token", { bot_token: botToken });
-      } catch {
-        // ignore — fall through to /me check
+    // Inside Telegram Mini App: apply theme + exchange initData for cookie.
+    if (isInsideTelegram()) {
+      initTelegramWebApp();
+      const webApp = getWebApp();
+      if (webApp?.initData) {
+        try {
+          await api.post("/api/auth/miniapp", { init_data: webApp.initData });
+        } catch {
+          // fall through — check /me; may still be anonymous
+        }
       }
-      url.searchParams.delete("bot_token");
-      history.replaceState(null, "", url.toString());
+    } else {
+      // Regular web: handle deep link from Bot: `?bot_token=...`
+      const url = new URL(location.href);
+      const botToken = url.searchParams.get("bot_token");
+      if (botToken) {
+        try {
+          await api.post("/api/auth/bot_token", { bot_token: botToken });
+        } catch {
+          // ignore — fall through to /me check
+        }
+        url.searchParams.delete("bot_token");
+        history.replaceState(null, "", url.toString());
+      }
     }
     await check();
   }

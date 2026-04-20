@@ -138,10 +138,30 @@ frontend/
 
 檔案 > `bot_large_file_fallback_bytes`（預設 2GB）時只保留伺服器副本、不上傳 Saved Messages。
 
+## Telegram Mini App（P3）
+
+完整 Web UI 可嵌在 Telegram client 的 WebView 中執行。
+
+**設定**：
+1. 執行 `cd frontend && pnpm build` 產生 `dist/`
+2. 用 nginx / caddy / Cloudflare tunnel 公開後端（因 Telegram 要 HTTPS）
+3. 在 BotFather 執行 `/newapp`，Web App URL 填 `https://your-domain/app`
+
+**運作流程**：
+- 使用者在 bot 裡點 Mini App 按鈕 → 開啟 WebView 到 `/app`
+- 前端偵測 `window.Telegram.WebApp`，讀 `initData` 呼叫 `POST /api/auth/miniapp`
+- 後端 HMAC-SHA256 驗證 initData（key = `HMAC(WebAppData, bot_token)`），通過後若該 tg_user_id 已有 MTProto session 就發 session cookie；否則回 `{needs_login: true}` → 前端降回 QR 登入
+- 後端同步 Telegram `themeParams` 到 CSS variables，主題隨 Telegram client 切換
+
+**驗證**：
+```bash
+# 單元測試 initData 驗證邏輯
+cd backend && uv run python -c "from app.miniapp.verify import verify_init_data; ..."
+```
+
 ## 已知限制
 
-- 大於 200MB 影片不自動抽 keyframe（fallback 首 5 秒 stream）——P2 規劃 Range-seek 抽幀
-- Mini App 尚未實作（P3）
+- 大於 200MB 影片不自動抽 keyframe（fallback 首 5 秒 stream）——Range-seek 抽幀規劃中
 
 ## 授權
 

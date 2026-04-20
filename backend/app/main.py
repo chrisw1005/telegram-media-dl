@@ -26,6 +26,7 @@ from app.core.downloader import Downloader
 from app.core.keyframe_extractor import KeyframeExtractor
 from app.core.queue import JobQueue
 from app.core.session_store import SessionStore
+from app.miniapp import routes as miniapp_routes
 
 logging.basicConfig(
     level=logging.INFO,
@@ -132,6 +133,7 @@ def create_app() -> FastAPI:
     app.include_router(fs_router.router)
     app.include_router(settings_router.router)
     app.include_router(bot_webhook.router)
+    miniapp_routes.mount(app)
 
     @app.get("/health")
     async def health() -> dict:

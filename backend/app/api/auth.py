@@ -94,6 +94,47 @@ class BotTokenRequest(BaseModel):
     bot_token: str
 
 
+class MiniAppAuthRequest(BaseModel):
+    init_data: str
+
+
+@router.post("/miniapp")
+async def miniapp_auth(
+    req: MiniAppAuthRequest, state: StateDep, response: Response
+) -> dict:
+    """Verify Telegram Mini App initData HMAC and issue a session cookie.
+
+    Requires BOT_TOKEN to be configured (initData is signed by the bot).
+    The Telegram user MUST already have a completed MTProto session on file.
+    """
+    from app.miniapp.verify import InitDataError, verify_init_data
+
+    if not state.secrets.bot_token:
+        raise HTTPException(status_code=503, detail="bot_not_configured")
+
+    try:
+        verified = verify_init_data(req.init_data, state.secrets.bot_token)
+    except InitDataError as e:
+        raise HTTPException(status_code=401, detail=f"initdata_{e}") from e
+
+    uid = verified.user.id
+    if not state.acl.is_allowed(uid):
+        raise HTTPException(status_code=403, detail="not_allowed")
+    if not state.session_store.has_session(uid):
+        return {"needs_login": True, "tg_user_id": uid}
+
+    token = LoginManager.issue_api_token(uid)
+    response.set_cookie(
+        "tg_session",
+        token,
+        httponly=True,
+        samesite="lax",
+        max_age=30 * 24 * 3600,
+        path="/",
+    )
+    return {"ok": True, "tg_user_id": uid}
+
+
 @router.post("/bot_token")
 async def bot_token_exchange(
     req: BotTokenRequest, state: StateDep, response: Response
