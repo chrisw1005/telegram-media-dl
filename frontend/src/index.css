@@ -67,6 +67,15 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* WebKit's native caps-lock indicator scales with input height; at our 44px
+     inputs it renders as a stretched arrow. The OS keyboard already signals
+     caps-lock state, so hide the in-input glyph. Password autofill button
+     (::-webkit-credentials-auto-fill-button) is intentionally left visible. */
+  input[type="password"]::-webkit-caps-lock-indicator {
+    content: none;
+    display: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
