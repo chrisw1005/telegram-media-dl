@@ -1,0 +1,25 @@
+deployment_mode: local
+
+download_dir: ~/Downloads/telegram
+data_dir: data
+
+admin_ids: []
+allowlist: []
+
+concurrency:
+  per_user: 4
+  global_rps: 20
+  preview_semaphore: 6
+  keyframe_workers: 2
+
+keyframes:
+  density: medium
+  min_frames: 20
+  max_frames: 120
+  thumbnail_width: 320
+  auto_extract_max_bytes: 52428800
+  on_demand_max_bytes: 209715200
+
+cors_origins:
+  - http://localhost:5173
+  - http://127.0.0.1:5173
