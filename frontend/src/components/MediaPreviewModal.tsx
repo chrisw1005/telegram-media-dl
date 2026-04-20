@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
 import type { KeyframesResponse, MediaItem } from "@/lib/api";
@@ -58,12 +58,19 @@ function InnerModal({
   onEnqueue: (messageId: number) => void;
 }) {
   const item = items[index];
+  const dialogRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const filmstripRef = useRef<HTMLDivElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [keyframes, setKeyframes] = useState<KeyframesResponse | null>(null);
   const statusMap = useMessageStatus();
   const jobStatus = statusMap[`${item.chat_id}:${item.message_id}`];
+  const titleId = useId();
+
+  useEffect(() => {
+    const t = window.setTimeout(() => dialogRef.current?.focus(), 0);
+    return () => window.clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     setKeyframes(null);
@@ -196,10 +203,16 @@ function InnerModal({
 
   return (
     <motion.div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      tabIndex={-1}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1, transition: { duration: 0.2 } }}
       exit={{ opacity: 0, transition: { duration: 0.15 } }}
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm grid grid-cols-[1fr_320px] grid-rows-[1fr_auto]"
+      style={{ overscrollBehavior: "contain" }}
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm grid grid-cols-[1fr_320px] grid-rows-[1fr_auto] focus:outline-none"
       onClick={onClose}
     >
       <motion.div
@@ -226,7 +239,7 @@ function InnerModal({
         ) : item.kind === "photo" ? (
           <img
             src={streamUrl}
-            alt=""
+            alt={item.filename || "媒體預覽"}
             className="max-w-full max-h-full rounded-card object-contain"
           />
         ) : (
@@ -246,9 +259,15 @@ function InnerModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold">媒體資訊</h2>
-          <button onClick={onClose} className="text-foreground-muted hover:text-foreground">
-            <X className="w-5 h-5" />
+          <h2 id={titleId} className="text-sm font-semibold">
+            媒體資訊
+          </h2>
+          <button
+            onClick={onClose}
+            aria-label="關閉"
+            className="text-foreground-muted hover:text-foreground transition-colors"
+          >
+            <X aria-hidden="true" className="w-5 h-5" />
           </button>
         </div>
 
@@ -278,11 +297,11 @@ function InnerModal({
               goNext();
             }}
           >
-            <Download className="w-4 h-4" /> 加入下載 (D / Enter)
+            <Download aria-hidden="true" className="w-4 h-4" /> 加入下載 (D / Enter)
           </Button>
           <div className="grid grid-cols-2 gap-2">
             <Button variant="secondary" size="sm" onClick={() => goStep(-1)} disabled={index === 0}>
-              <ChevronLeft className="w-4 h-4" /> 上一個
+              <ChevronLeft aria-hidden="true" className="w-4 h-4" /> 上一個
             </Button>
             <Button
               variant="secondary"
@@ -290,7 +309,7 @@ function InnerModal({
               onClick={() => goStep(1)}
               disabled={index >= items.length - 1}
             >
-              下一個 <ChevronRight className="w-4 h-4" />
+              下一個 <ChevronRight aria-hidden="true" className="w-4 h-4" />
             </Button>
           </div>
           <p className="text-[11px] text-foreground-muted text-center pt-2">
@@ -314,17 +333,21 @@ function InnerModal({
             {keyframes.urls.map((url, i) => (
               <button
                 key={i}
+                type="button"
                 data-kf-idx={i}
                 onClick={() => jumpToKeyframe(i)}
+                aria-label={`跳到 ${formatDuration(keyframes.offsets[i])}`}
+                aria-current={activeKeyframeIdx === i ? "true" : undefined}
                 className={cn(
-                  "shrink-0 relative rounded-md overflow-hidden border-2 transition-all duration-fast",
+                  "shrink-0 relative rounded-md overflow-hidden border-2 transition-[border-color] duration-fast",
                   activeKeyframeIdx === i ? "border-primary" : "border-transparent",
                 )}
-                title={formatDuration(keyframes.offsets[i])}
               >
                 <img
                   src={url}
                   alt=""
+                  width={120}
+                  height={68}
                   className="w-[120px] h-[68px] object-cover"
                   loading="lazy"
                 />
