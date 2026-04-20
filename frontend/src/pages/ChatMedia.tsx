@@ -167,6 +167,8 @@ export default function ChatMedia({ chatId }: { chatId: number }) {
           {FILTERS.map((f) => (
             <button
               key={f.key}
+              type="button"
+              aria-pressed={kind === f.key}
               onClick={() => setKind(f.key)}
               className={cn(
                 "px-3 h-8 rounded-button text-sm font-medium transition-colors duration-fast",
@@ -199,14 +201,14 @@ export default function ChatMedia({ chatId }: { chatId: number }) {
                 onClick={enqueueSelected}
                 disabled={enqueue.isPending}
               >
-                <Download className="w-4 h-4" /> 下載所選
+                <Download aria-hidden="true" className="w-4 h-4" /> 下載所選
               </Button>
             </motion.div>
           )}
         </AnimatePresence>
         {selected.size === 0 && items.length > 0 && (
           <Button variant="ghost" size="sm" onClick={selectAll}>
-            <CheckSquare className="w-4 h-4" /> 全選
+            <CheckSquare aria-hidden="true" className="w-4 h-4" /> 全選
           </Button>
         )}
       </header>

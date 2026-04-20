@@ -107,10 +107,12 @@ export default function SettingsSheet({
                 <label className="block text-xs text-foreground-muted mb-2">
                   Keyframe 密度
                 </label>
-                <div className="grid grid-cols-3 gap-1">
+                <div className="grid grid-cols-3 gap-1" role="group" aria-label="Keyframe 密度">
                   {(["low", "medium", "high"] as const).map((d) => (
                     <button
                       key={d}
+                      type="button"
+                      aria-pressed={settings.keyframe_density === d}
                       onClick={() => save({ keyframe_density: d })}
                       className={cn(
                         "h-9 rounded-button text-sm border transition-colors",
@@ -136,10 +138,12 @@ export default function SettingsSheet({
                 <label className="block text-xs text-foreground-muted mb-2">
                   欄數
                 </label>
-                <div className="grid grid-cols-6 gap-1">
+                <div className="grid grid-cols-6 gap-1" role="group" aria-label="Grid 欄數">
                   {(["auto", "3", "4", "5", "6", "8"] as const).map((c) => (
                     <button
                       key={c}
+                      type="button"
+                      aria-pressed={settings.grid_columns === c}
                       onClick={() => save({ grid_columns: c })}
                       className={cn(
                         "h-9 rounded-button text-sm border transition-colors",
@@ -204,10 +208,12 @@ export default function SettingsSheet({
             <h3 className="text-xs font-semibold text-foreground-muted uppercase tracking-wider mb-3">
               外觀
             </h3>
-            <div className="grid grid-cols-3 gap-1">
+            <div className="grid grid-cols-3 gap-1" role="group" aria-label="主題外觀">
               {(["auto", "light", "dark"] as const).map((c) => (
                 <button
                   key={c}
+                  type="button"
+                  aria-pressed={theme.choice === c}
                   onClick={() => {
                     theme.setChoice(c);
                     void save({ theme: c });
@@ -279,7 +285,11 @@ function AdminSection() {
       <div className="space-y-2">
         <div className="flex gap-2">
           <Input
-            placeholder="TG User ID"
+            type="text"
+            name="tg_user_id"
+            autoComplete="off"
+            aria-label="新增 TG User ID"
+            placeholder="TG User ID，例：123456789…"
             inputMode="numeric"
             value={newId}
             onChange={(e) => setNewId(e.target.value.replace(/\D/g, ""))}
