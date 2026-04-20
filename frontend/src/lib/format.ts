@@ -1,3 +1,5 @@
+const NBSP = "\u00a0";
+
 export function formatSize(bytes: number): string {
   if (!bytes) return "—";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -7,7 +9,7 @@ export function formatSize(bytes: number): string {
     v /= 1024;
     i += 1;
   }
-  return `${v.toFixed(v >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
+  return `${v.toFixed(v >= 100 || i === 0 ? 0 : 1)}${NBSP}${units[i]}`;
 }
 
 export function formatDuration(seconds: number): string {
@@ -24,8 +26,15 @@ export function formatSpeed(bytesPerSec: number): string {
   return `${formatSize(bytesPerSec)}/s`;
 }
 
+const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 export function formatDateTs(ts: number): string {
   if (!ts) return "";
-  const d = new Date(ts * 1000);
-  return d.toLocaleString();
+  return dateTimeFormatter.format(new Date(ts * 1000));
 }
