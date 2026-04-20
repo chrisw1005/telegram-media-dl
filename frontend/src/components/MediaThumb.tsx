@@ -107,7 +107,6 @@ export default function MediaThumb({ item, selected, onToggleSelect, onOpen }: P
   }, [slideshowActive, frames]);
 
   const thumbUrl = `/api/thumb/${item.chat_id}/${item.message_id}`;
-  const aspect = item.width && item.height ? item.width / item.height : 16 / 9;
 
   return (
     <motion.div
@@ -139,12 +138,11 @@ export default function MediaThumb({ item, selected, onToggleSelect, onOpen }: P
         onToggleSelect();
       }}
       className={cn(
-        "relative cursor-pointer rounded-card overflow-hidden bg-bg-card group",
+        "relative w-full h-full cursor-pointer rounded-card overflow-hidden bg-bg-card group",
         "ring-2 ring-transparent transition-all duration-fast",
         selected && "ring-primary",
         hovering && !selected && "ring-primary/40",
       )}
-      style={{ aspectRatio: aspect }}
     >
       {/* Base layer: thumbnail or document icon */}
       {item.kind === "document" || item.kind === "audio" || item.kind === "voice" ? (

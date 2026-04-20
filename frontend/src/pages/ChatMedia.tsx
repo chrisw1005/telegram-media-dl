@@ -4,11 +4,14 @@ import {
   useInfiniteQuery,
   useMutation,
   useQueryClient,
+  useQuery,
 } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckSquare, Download } from "lucide-react";
+import { MasonryPhotoAlbum } from "react-photo-album";
+import "react-photo-album/masonry.css";
 import { toast } from "sonner";
-import { api, type MediaItem, type MediaPage } from "@/lib/api";
+import { api, type MediaItem, type MediaPage, type UserSettings } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import MediaThumb from "@/components/MediaThumb";
@@ -50,6 +53,39 @@ export default function ChatMedia({ chatId }: { chatId: number }) {
   const items = useMemo<MediaItem[]>(
     () => data?.pages.flatMap((p) => p.items) ?? [],
     [data],
+  );
+
+  const { data: settings } = useQuery<UserSettings>({
+    queryKey: ["settings"],
+    queryFn: () => api.get<UserSettings>("/api/settings"),
+    staleTime: 5 * 60_000,
+  });
+
+  const minAspect = settings?.grid_min_aspect ?? 0.5;
+  const maxAspect = settings?.grid_max_aspect ?? 2.0;
+  const gridColumns = settings?.grid_columns ?? "auto";
+
+  // Masonry wants photos with intrinsic width/height. We clamp each item's
+  // real aspect into [minAspect, maxAspect] so extreme portraits/panos can't
+  // blow out the layout. The downstream MediaThumb uses object-cover to
+  // crop whatever doesn't fit the clamped box.
+  const photos = useMemo(
+    () =>
+      items.map((item, i) => {
+        const rawW = item.width > 0 ? item.width : 400;
+        const rawH = item.height > 0 ? item.height : 300;
+        const rawAspect = rawW / rawH;
+        const aspect = Math.min(maxAspect, Math.max(minAspect, rawAspect));
+        const unit = 1000;
+        return {
+          src: `/api/thumb/${item.chat_id}/${item.message_id}`,
+          width: unit,
+          height: Math.round(unit / aspect),
+          key: `${item.chat_id}:${item.message_id}:${i}`,
+          _item: item,
+        };
+      }),
+    [items, minAspect, maxAspect],
   );
 
   useEffect(() => {
@@ -191,17 +227,28 @@ export default function ChatMedia({ chatId }: { chatId: number }) {
         )}
 
         {!isLoading && items.length > 0 && (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 auto-rows-auto">
-            {items.map((item, i) => (
-              <MediaThumb
-                key={`${item.chat_id}:${item.message_id}`}
-                item={item}
-                selected={selected.has(item.message_id)}
-                onToggleSelect={() => toggleSelect(item.message_id)}
-                onOpen={() => setPreviewIdx(i)}
-              />
-            ))}
-          </div>
+          <MasonryPhotoAlbum
+            photos={photos}
+            columns={
+              gridColumns === "auto"
+                ? (width) => Math.max(2, Math.min(8, Math.round(width / 200)))
+                : () => Number(gridColumns)
+            }
+            spacing={12}
+            render={{
+              photo: (_props, { index }) => {
+                const item = (photos[index] as unknown as { _item: MediaItem })._item;
+                return (
+                  <MediaThumb
+                    item={item}
+                    selected={selected.has(item.message_id)}
+                    onToggleSelect={() => toggleSelect(item.message_id)}
+                    onOpen={() => setPreviewIdx(index)}
+                  />
+                );
+              },
+            }}
+          />
         )}
 
         <div ref={sentinelRef} className="h-10" />

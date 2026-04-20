@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, type AppInfo, type MeResponse, type UserSettings } from "@/lib/api";
 import { Sheet } from "@/components/ui/sheet";
@@ -31,12 +31,16 @@ export default function SettingsSheet({
     void api.get<UserSettings>("/api/settings").then(setSettings);
   }, [open]);
 
+  const queryClient = useQueryClient();
+
   async function save(partial: Partial<UserSettings>) {
     if (!settings) return;
     const next = { ...settings, ...partial };
     setSettings(next);
     try {
       await api.put("/api/settings", next);
+      // Tell ChatMedia (which watches the settings query) to re-layout.
+      queryClient.setQueryData(["settings"], next);
       toast.success("已儲存", { duration: 1500 });
     } catch (e) {
       toast.error(`儲存失敗：${String(e)}`);
@@ -119,6 +123,79 @@ export default function SettingsSheet({
                     </button>
                   ))}
                 </div>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-xs font-semibold text-foreground-muted uppercase tracking-wider mb-3">
+              媒體 Grid
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-foreground-muted mb-2">
+                  欄數
+                </label>
+                <div className="grid grid-cols-6 gap-1">
+                  {(["auto", "3", "4", "5", "6", "8"] as const).map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => save({ grid_columns: c })}
+                      className={cn(
+                        "h-9 rounded-button text-sm border transition-colors",
+                        settings.grid_columns === c
+                          ? "border-primary text-primary bg-[rgb(var(--primary)/0.1)]"
+                          : "border-border text-foreground-muted hover:text-foreground",
+                      )}
+                    >
+                      {c === "auto" ? "自動" : c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-foreground-muted mb-2">
+                  最窄高寬比：<span className="font-mono">
+                    {settings.grid_min_aspect.toFixed(2)}
+                  </span>
+                  <span className="ml-2 text-foreground-muted/70">
+                    （portrait 最高 1:{(1 / settings.grid_min_aspect).toFixed(1)}）
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min={0.3}
+                  max={1.0}
+                  step={0.05}
+                  value={settings.grid_min_aspect}
+                  onChange={(e) =>
+                    save({ grid_min_aspect: parseFloat(e.target.value) })
+                  }
+                  className="w-full accent-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-foreground-muted mb-2">
+                  最寬高寬比：<span className="font-mono">
+                    {settings.grid_max_aspect.toFixed(2)}
+                  </span>
+                  <span className="ml-2 text-foreground-muted/70">
+                    （pano 最寬 {settings.grid_max_aspect.toFixed(1)}:1）
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min={1.0}
+                  max={3.0}
+                  step={0.1}
+                  value={settings.grid_max_aspect}
+                  onChange={(e) =>
+                    save({ grid_max_aspect: parseFloat(e.target.value) })
+                  }
+                  className="w-full accent-primary"
+                />
               </div>
             </div>
           </section>

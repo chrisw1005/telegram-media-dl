@@ -137,6 +137,9 @@ export interface UserSettings {
   preferred_concurrency: number | null;
   theme: "auto" | "light" | "dark";
   keyframe_density: "low" | "medium" | "high";
+  grid_min_aspect: number;
+  grid_max_aspect: number;
+  grid_columns: "auto" | "3" | "4" | "5" | "6" | "8";
 }
 
 export interface AppInfo {

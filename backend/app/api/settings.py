@@ -19,6 +19,9 @@ class UserSettings(BaseModel):
     preferred_concurrency: int | None = Field(default=None, ge=1, le=8)
     theme: str = "auto"  # "auto" | "light" | "dark"
     keyframe_density: str = "medium"  # "low" | "medium" | "high"
+    grid_min_aspect: float = Field(default=0.5, ge=0.2, le=1.0)
+    grid_max_aspect: float = Field(default=2.0, ge=1.0, le=5.0)
+    grid_columns: str = "auto"  # "auto" | "3" | "4" | "5" | "6" | "8"
 
 
 class AdminAcl(BaseModel):
