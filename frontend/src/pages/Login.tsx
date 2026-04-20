@@ -204,7 +204,7 @@ function QRFlow({ onLoggedIn }: { onLoggedIn: () => void }) {
           animate="show"
           className="flex items-center gap-2 text-sm text-foreground-muted"
         >
-          <ScanLine className="w-4 h-4" />
+          <ScanLine aria-hidden="true" className="w-4 h-4" />
           <span>用另一台 Telegram 掃描此 QR</span>
         </motion.div>
       )}
@@ -221,6 +221,9 @@ function QRFlow({ onLoggedIn }: { onLoggedIn: () => void }) {
           </p>
           <Input
             type="password"
+            name="tg_password"
+            autoComplete="current-password"
+            spellCheck={false}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="兩步驟驗證密碼"
@@ -310,8 +313,14 @@ function PhoneFlow({ onLoggedIn }: { onLoggedIn: () => void }) {
         <motion.div variants={fadeUp} initial="hidden" animate="show" className="space-y-4">
           <label className="block text-sm text-foreground-muted">手機號碼（含國碼）</label>
           <div className="relative">
-            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
+            <Phone
+              aria-hidden="true"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted"
+            />
             <Input
+              type="tel"
+              name="phone_number"
+              autoComplete="tel"
               inputMode="tel"
               placeholder="+886912345678"
               value={phone}
@@ -342,8 +351,11 @@ function PhoneFlow({ onLoggedIn }: { onLoggedIn: () => void }) {
                   codeRefs.current[i] = el;
                 }}
                 value={ch}
+                name={`otp-${i}`}
+                autoComplete="one-time-code"
                 inputMode="numeric"
                 maxLength={1}
+                aria-label={`驗證碼第 ${i + 1} 位`}
                 className="text-center text-lg font-mono w-12 h-14 p-0"
                 onChange={(e) => {
                   const v = e.target.value.replace(/\D/g, "");
@@ -373,9 +385,15 @@ function PhoneFlow({ onLoggedIn }: { onLoggedIn: () => void }) {
 
       {step === "password" && (
         <motion.div variants={fadeUp} initial="hidden" animate="show" className="space-y-4">
-          <label className="block text-sm text-foreground-muted">兩步驟驗證密碼</label>
+          <label htmlFor="phone-2fa-password" className="block text-sm text-foreground-muted">
+            兩步驟驗證密碼
+          </label>
           <Input
+            id="phone-2fa-password"
             type="password"
+            name="tg_password"
+            autoComplete="current-password"
+            spellCheck={false}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoFocus
