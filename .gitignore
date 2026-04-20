@@ -7,3 +7,5 @@
 .env
 *.log
 .DS_Store
+/.serena/
+/CLAUDE.md
