@@ -39,21 +39,28 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 
 ## 啟動 dev server
 
-兩個 terminal 分別跑：
+**推薦**：用附帶腳本，會自動偵測並釋放被佔用的 port：
 
 ```bash
-# Terminal 1 — backend (FastAPI on :8000)
-cd backend
-uv sync
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+./scripts/dev.sh          # 同時起 backend (8787) + frontend (5373)
+./scripts/dev.sh --backend-only
+./scripts/dev.sh --frontend-only
+./scripts/stop.sh         # 只停不啟動
 
-# Terminal 2 — frontend (Vite on :5173)
-cd frontend
-pnpm install
-pnpm dev
+# 改 port（預設避開 8000/5173 等常撞 port）
+BACKEND_PORT=9000 FRONTEND_PORT=5174 ./scripts/dev.sh
 ```
 
-開 <http://localhost:5173/> → 用另一台已登入的 Telegram 掃 QR 即可。
+偵測到 port 被佔會先印出對方 process 名稱再 kill，避免誤殺。
+
+**手動啟動**（不用腳本）：
+
+```bash
+cd backend && uv sync && uv run uvicorn app.main:app --host 127.0.0.1 --port 8787 --reload
+cd frontend && pnpm install && BACKEND_PORT=8787 pnpm dev --port 5373
+```
+
+開 <http://localhost:5373/> → 用另一台已登入的 Telegram 掃 QR 即可。
 
 > 第一次登入的帳號會自動成為 admin（若 `config.yaml:allowlist` 未設）。之後 admin 可在 Settings 頁新增白名單。
 
