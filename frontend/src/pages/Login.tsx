@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
 import { Check, Loader2, Phone, ScanLine } from "lucide-react";
@@ -80,17 +80,28 @@ function QRFlow({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const pollingRef = useRef<number | null>(null);
 
+  const stopPoll = useCallback(() => {
+    if (pollingRef.current !== null) {
+      window.clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     void start();
     return () => {
-      if (pollingRef.current) window.clearInterval(pollingRef.current);
+      stopPoll();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function start() {
+    stopPoll();
+    setLoginToken("");
+    setQrUrl("");
+    setError(null);
+    setStatus("waiting");
     try {
-      setStatus("waiting");
       const { login_token, qr_url } = await api.post<{ login_token: string; qr_url: string }>(
         "/api/auth/qr/start",
       );
@@ -125,7 +136,7 @@ function QRFlow({ onLoggedIn }: { onLoggedIn: () => void }) {
   }
 
   function beginPoll(token: string) {
-    if (pollingRef.current) window.clearInterval(pollingRef.current);
+    stopPoll();
     pollingRef.current = window.setInterval(async () => {
       try {
         const data = await api.get<{ qr_url: string | null; result: QrResult | null }>(
@@ -134,19 +145,20 @@ function QRFlow({ onLoggedIn }: { onLoggedIn: () => void }) {
         if (data.qr_url && data.qr_url !== qrUrl) setQrUrl(data.qr_url);
         if (data.result) {
           if (data.result.ok) {
+            stopPoll();
             setStatus("success");
-            if (pollingRef.current) window.clearInterval(pollingRef.current);
             setTimeout(onLoggedIn, 600);
           } else if (data.result.error === "password_needed") {
+            stopPoll();
             setStatus("password_needed");
-            if (pollingRef.current) window.clearInterval(pollingRef.current);
           } else {
+            stopPoll();
             setStatus("error");
             setError(data.result.error || "unknown_error");
-            if (pollingRef.current) window.clearInterval(pollingRef.current);
           }
         }
       } catch (e) {
+        stopPoll();
         setStatus("error");
         setError(String(e));
       }
